@@ -282,7 +282,7 @@ NSString *const AsyncImageErrorKey = @"error";
 
 @interface AsyncImageLoader ()
 
-@property (nonatomic, strong) NSMutableArray *connections;
+@property (nonatomic, strong) NSArray *connections;
 
 @end
 
@@ -358,20 +358,22 @@ NSString *const AsyncImageErrorKey = @"error";
 {  
     //complete connections for URL
     NSURL *URL = (notification.userInfo)[AsyncImageURLKey];
-    for (NSInteger i = (NSInteger)[self.connections count] - 1; i >= 0; i--)
+    NSMutableArray *newConnections = [self.connections mutableCopy];
+    
+    for (NSInteger i = (NSInteger)[newConnections count] - 1; i >= 0; i--)
     {
-        AsyncImageConnection *connection = self.connections[(NSUInteger)i];
+        AsyncImageConnection *connection = newConnections[(NSUInteger)i];
         if (connection.URL == URL || [connection.URL isEqual:URL])
         {
             //cancel earlier connections for same target/action
             for (NSInteger j = i - 1; j >= 0; j--)
             {
-                AsyncImageConnection *earlier = self.connections[(NSUInteger)j];
+                AsyncImageConnection *earlier = newConnections[(NSUInteger)j];
                 if (earlier.target == connection.target &&
                     earlier.success == connection.success)
                 {
                     [earlier cancel];
-                    [self.connections removeObjectAtIndex:(NSUInteger)j];
+                    [newConnections removeObjectAtIndex:(NSUInteger)j];
                     i--;
                 }
             }
@@ -384,9 +386,10 @@ NSString *const AsyncImageErrorKey = @"error";
             ((void (*)(id, SEL, id, id))objc_msgSend)(connection.target, connection.success, image, connection.URL);
             
             //remove from queue
-            [self.connections removeObjectAtIndex:(NSUInteger)i];
+            [newConnections removeObjectAtIndex:(NSUInteger)i];
         }
     }
+    self.connections = newConnections;
     
     //update the queue
     [self updateQueue];
@@ -396,9 +399,11 @@ NSString *const AsyncImageErrorKey = @"error";
 {
     //remove connections for URL
     NSURL *URL = (notification.userInfo)[AsyncImageURLKey];
-    for (NSInteger i = (NSInteger)[self.connections count] - 1; i >= 0; i--)
+    NSMutableArray *newConnections = [self.connections mutableCopy];
+
+    for (NSInteger i = (NSInteger)[newConnections count] - 1; i >= 0; i--)
     {
-        AsyncImageConnection *connection = self.connections[(NSUInteger)i];
+        AsyncImageConnection *connection = newConnections[(NSUInteger)i];
         if ([connection.URL isEqual:URL])
         {
             //cancel connection (in case it's a duplicate)
@@ -412,9 +417,10 @@ NSString *const AsyncImageErrorKey = @"error";
             }
             
             //remove from queue
-            [self.connections removeObjectAtIndex:(NSUInteger)i];
+            [newConnections removeObjectAtIndex:(NSUInteger)i];
         }
     }
+    self.connections = newConnections;
     
     //update the queue
     [self updateQueue];
@@ -444,20 +450,22 @@ NSString *const AsyncImageErrorKey = @"error";
                                                                          success:success
                                                                          failure:failure];
     BOOL added = NO;
-    for (NSUInteger i = 0; i < [self.connections count]; i++)
+    NSMutableArray *newConnections = [self.connections mutableCopy];
+    for (NSUInteger i = 0; i < [newConnections count]; i++)
     {
-        AsyncImageConnection *existingConnection = self.connections[i];
+        AsyncImageConnection *existingConnection = newConnections[i];
         if (!existingConnection.loading)
         {
-            [self.connections insertObject:connection atIndex:i];
+            [newConnections insertObject:connection atIndex:i];
             added = YES;
             break;
         }
     }
     if (!added)
     {
-        [self.connections addObject:connection];
+        [newConnections addObject:connection];
     }
+    self.connections = newConnections;
     
     [self updateQueue];
 }
@@ -474,41 +482,47 @@ NSString *const AsyncImageErrorKey = @"error";
 
 - (void)cancelLoadingURL:(NSURL *)URL target:(id)target action:(SEL)action
 {
-    for (NSInteger i = (NSInteger)[self.connections count] - 1; i >= 0; i--)
+    NSMutableArray *newConnections = [self.connections mutableCopy];
+    for (NSInteger i = (NSInteger)[newConnections count] - 1; i >= 0; i--)
     {
-        AsyncImageConnection *connection = self.connections[(NSUInteger)i];
+        AsyncImageConnection *connection = newConnections[(NSUInteger)i];
         if ([connection.URL isEqual:URL] && connection.target == target && connection.success == action)
         {
             [connection cancel];
-            [self.connections removeObjectAtIndex:(NSUInteger)i];
+            [newConnections removeObjectAtIndex:(NSUInteger)i];
         }
     }
+    self.connections = newConnections;
 }
 
 - (void)cancelLoadingURL:(NSURL *)URL target:(id)target
 {
-    for (NSInteger i = (NSInteger)[self.connections count] - 1; i >= 0; i--)
+    NSMutableArray *newConnections = [self.connections mutableCopy];
+    for (NSInteger i = (NSInteger)[newConnections count] - 1; i >= 0; i--)
     {
-        AsyncImageConnection *connection = self.connections[(NSUInteger)i];
+        AsyncImageConnection *connection = newConnections[(NSUInteger)i];
         if ([connection.URL isEqual:URL] && connection.target == target)
         {
             [connection cancel];
-            [self.connections removeObjectAtIndex:(NSUInteger)i];
+            [newConnections removeObjectAtIndex:(NSUInteger)i];
         }
     }
+    self.connections = newConnections;
 }
 
 - (void)cancelLoadingURL:(NSURL *)URL
 {
-    for (NSInteger i = (NSInteger)[self.connections count] - 1; i >= 0; i--)
+    NSMutableArray *newConnections = [self.connections mutableCopy];
+    for (NSInteger i = (NSInteger)[newConnections count] - 1; i >= 0; i--)
     {
-        AsyncImageConnection *connection = self.connections[(NSUInteger)i];
+        AsyncImageConnection *connection = newConnections[(NSUInteger)i];
         if ([connection.URL isEqual:URL])
         {
             [connection cancel];
-            [self.connections removeObjectAtIndex:(NSUInteger)i];
+            [newConnections removeObjectAtIndex:(NSUInteger)i];
         }
     }
+    self.connections = newConnections;
 }
 
 - (void)cancelLoadingImagesForTarget:(id)target action:(SEL)action
